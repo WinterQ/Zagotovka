@@ -54,6 +54,15 @@
   <div class="container-fluid px-2 px-md-4">
     <h1 class="h3 mb-3 text-center">CutList JS</h1>
 
+    <!-- подсказки для длины полос -->
+    <datalist id="length_options">
+      <option value="3000"></option>
+      <option value="2500"></option>
+      <option value="2000"></option>
+      <option value="1500"></option>
+      <option value="1200"></option>
+    </datalist>
+
     <!-- Параметры листа -->
     <div class="card mb-3">
       <div class="card-body row g-2">
@@ -84,7 +93,6 @@
             <thead>
               <tr>
                 <th>Длина</th>
-                <th></th>
                 <th>Ширина</th>
                 <th>Кол-во</th>
                 <th style="width:1%;"></th>
@@ -116,7 +124,6 @@
       </div>
     </div>
   </div>
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
           integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
           crossorigin="anonymous"></script>
@@ -132,17 +139,9 @@
 
       tr.innerHTML = `
         <td>
-          <input class="form-control form-control-sm length-input" value="${length}">
-        </td>
-        <td>
-          <select class="form-select form-select-sm length-select">
-            <option value="">выбери</option>
-            <option value="3000">3000</option>
-            <option value="2500">2500</option>
-            <option value="2000">2000</option>
-            <option value="1500">1500</option>
-            <option value="1200">1200</option>
-          </select>
+          <input list="length_options"
+                 class="form-control form-control-sm length-input"
+                 value="${length}">
         </td>
         <td>
           <input class="form-control form-control-sm" value="${width}">
@@ -156,12 +155,6 @@
       `;
 
       tbody.appendChild(tr);
-
-      const select = tr.querySelector(".length-select");
-      const inputLen = tr.querySelector(".length-input");
-      select.addEventListener("change", () => {
-        if (select.value) inputLen.value = select.value;
-      });
     }
 
     function parseFloatSafe(v) {
@@ -185,9 +178,8 @@
       const rows = document.querySelectorAll("#pos_table tbody tr");
       const positions = [];
       rows.forEach(tr => {
-        const lenInput = tr.querySelector(".length-input");
         const inputs = tr.querySelectorAll("input");
-        const length = parseFloatSafe(lenInput.value);
+        const length = parseFloatSafe(inputs[0].value);
         const width  = parseFloatSafe(inputs[1].value);
         const count  = parseInt(inputs[2].value || "0", 10);
         if (length && width && count > 0) {
@@ -287,62 +279,69 @@
       );
 
       const colors = ["#3b82f6", "#f97316", "#22c55e", "#eab308", "#a855f7", "#06b6d4"];
-      let colorIndex = 0;
-      let curLenU = 0;
+			let colorIndex = 0;
 
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = window.innerWidth <= 576 ? "12px Arial" : "10px Arial";
+			ctx.textAlign = "center";
+			ctx.textBaseline = "middle";
+			ctx.font = window.innerWidth <= 576 ? "12px Arial" : "10px Arial";
 
-      for (const it of sheet.items) {
-        const widthU  = it.width_u;
-        const lengthU = it.length_u;
+			// теперь сдвигаемся по ширине (Y), а не по длине
+			  let curWidthU = 0; // начинаем сверху
 
-        for (let k = 0; k < it.count; k++) {
-          const xStartPx = x0 + (curLenU / SCALE) * scale;
-          const xEndPx   = x0 + ((curLenU + lengthU) / SCALE) * scale;
-          const yStartPx = y0;
-          const yEndPx   = y0 + (widthU / SCALE) * scale;
+			for (const it of sheet.items) {
+				const widthU  = it.width_u;   // высота одной полосы
+				const lengthU = it.length_u;  // длина полосы
 
-          const color = colors[colorIndex % colors.length];
-          colorIndex++;
+				for (let n = 0; n < it.count; n++) {
+					const xStartPx = x0;
+					const xEndPx   = x0 + (lengthU / SCALE) * scale;
+					const yStartPx = y0 + (curWidthU / SCALE) * scale;
+					const yEndPx   = y0 + ((curWidthU + widthU) / SCALE) * scale;
 
-          ctx.fillStyle = color;
-          ctx.strokeStyle = "#111";
-          ctx.fillRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
-          ctx.strokeRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
+					const color = colors[colorIndex % colors.length];
+					colorIndex++;
 
-          const label = `${fromUnits(widthU)}×${fromUnits(lengthU)}`;
-          ctx.fillStyle = "#fff";
-          ctx.fillText(
-            label,
-            (xStartPx + xEndPx) / 2,
-            (yStartPx + yEndPx) / 2
-          );
+					ctx.fillStyle = color;
+					ctx.strokeStyle = "#111";
+					ctx.fillRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
+					ctx.strokeRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
 
-          curLenU += lengthU;
-        }
-      }
+					const label = `${fromUnits(widthU)}×${fromUnits(lengthU)}`;
+					ctx.fillStyle = "#fff";
+					ctx.fillText(
+						label,
+						(xStartPx + xEndPx) / 2,
+						(yStartPx + yEndPx) / 2
+					);
 
-      const usedLenMm =
-        sheet.items.reduce((sum, it) => sum + (it.length_u / SCALE) * it.count, 0);
-      if (usedLenMm < sheetLen) {
-        const xStartPx = x0 + usedLenMm * scale;
-        const xEndPx   = x0 + sheetLen * scale;
-        ctx.fillStyle = "#1f2933";
-        ctx.strokeStyle = "#555";
-        ctx.fillRect(xStartPx, y0, xEndPx - xStartPx, sheetPxH);
-        ctx.strokeRect(xStartPx, y0, xEndPx - xStartPx, sheetPxH);
+					// сдвигаемся вниз на одну полосу
+					curWidthU += widthU;
+				}
+			}
 
-        ctx.fillStyle = "#e5e7eb";
-        ctx.fillText(
-          "Остаток",
-          (xStartPx + xEndPx) / 2,
-          (y0 + y1) / 2
-        );
-      }
+			// остаток по ширине, если curWidthU < sheetW
+			const usedWidthMm = curWidthU / SCALE;
+			if (usedWidthMm < sheetW) {
+				const xStartPx = x0;
+				const xEndPx   = x0 + sheetPxW;
+				const yStartPx = y0 + usedWidthMm * scale;
+				const yEndPx   = y0 + sheetW * scale;
+
+				ctx.fillStyle = "#1f2933";
+				ctx.strokeStyle = "#555";
+				ctx.fillRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
+				ctx.strokeRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
+
+				ctx.fillStyle = "#e5e7eb";
+				ctx.fillText(
+					"Остаток",
+					(xStartPx + xEndPx) / 2,
+					(yStartPx + yEndPx) / 2
+				);
+			}
     }
 
+    // первая строка таблицы
     addRow();
   </script>
 </body>
