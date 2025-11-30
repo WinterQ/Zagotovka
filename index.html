@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>CutList JS</title>
 
-  <!-- Bootstrap 5 CSS (по умолчанию поддерживает data-bs-theme="dark") -->
+  <!-- Bootstrap 5 CSS -->
   <link
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
     rel="stylesheet"
@@ -16,7 +16,6 @@
     body { padding-top: 10px; }
     #sheet_canvas { width: 100%; height: 300px; border:1px solid #555; }
 
-    /* немного подправим цвета для тёмной темы */
     .card { background-color: #1f1f1f; border-color: #333; }
     .card-header { background-color: #262626; border-bottom-color: #333; }
     .table thead { background-color: #262626; }
@@ -218,113 +217,111 @@
     }
 
     function drawSheet(sheet) {
-			const canvas = document.getElementById("sheet_canvas");
-			const rect = canvas.getBoundingClientRect();
-			canvas.width  = rect.width;
-			canvas.height = 300;
+      const canvas = document.getElementById("sheet_canvas");
+      const rect = canvas.getBoundingClientRect();
+      canvas.width  = rect.width;
+      canvas.height = 300;
 
-			const ctx = canvas.getContext("2d");
-			const w = canvas.width;
-			const h = canvas.height;
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
 
-			ctx.clearRect(0, 0, w, h);
+      ctx.clearRect(0, 0, w, h);
 
-			// Делаем лист ГОРИЗОНТАЛЬНЫМ:
-			// по оси X – ДЛИНА листа, по оси Y – ШИРИНА листа
-			const sheetLen = sheet.length_u / SCALE;  // мм, теперь по X
-			const sheetW   = lastSheetWidth;          // мм, теперь по Y
+      // Лист горизонтально: по X длина, по Y ширина
+      const sheetLen = sheet.length_u / SCALE;  // мм по X
+      const sheetW   = lastSheetWidth;          // мм по Y
 
-			const margin = 20;
-			const cw = w - 2 * margin;
-			const ch = h - 2 * margin;
-			if (cw <= 0 || ch <= 0) return;
+      const margin = 20;
+      const cw = w - 2 * margin;
+      const ch = h - 2 * margin;
+      if (cw <= 0 || ch <= 0) return;
 
-			const scaleX = cw / sheetLen;
-			const scaleY = ch / sheetW;
-			const scale = Math.min(scaleX, scaleY);
+      const scaleX = cw / sheetLen;
+      const scaleY = ch / sheetW;
+      const scale = Math.min(scaleX, scaleY);
 
-			const sheetPxW = sheetLen * scale;
-			const sheetPxH = sheetW * scale;
-			const x0 = (w - sheetPxW) / 2;
-			const y0 = (h - sheetPxH) / 2;
-			const x1 = x0 + sheetPxW;
-			const y1 = y0 + sheetPxH;
+      const sheetPxW = sheetLen * scale;
+      const sheetPxH = sheetW * scale;
+      const x0 = (w - sheetPxW) / 2;
+      const y0 = (h - sheetPxH) / 2;
+      const x1 = x0 + sheetPxW;
+      const y1 = y0 + sheetPxH;
 
-			// фон листа
-			ctx.fillStyle = "#444";
-			ctx.strokeStyle = "#ddd";
-			ctx.lineWidth = 1;
-			ctx.fillRect(x0, y0, sheetPxW, sheetPxH);
-			ctx.strokeRect(x0, y0, sheetPxW, sheetPxH);
+      ctx.fillStyle = "#444";
+      ctx.strokeStyle = "#ddd";
+      ctx.lineWidth = 1;
+      ctx.fillRect(x0, y0, sheetPxW, sheetPxH);
+      ctx.strokeRect(x0, y0, sheetPxW, sheetPxH);
 
-			ctx.fillStyle = "#fff";
-			ctx.textAlign = "center";
-			ctx.textBaseline = "bottom";
-			ctx.font = "12px Arial";
-			ctx.fillText(
-				`Лист ${fromUnits(sheet.length_u)} × ${sheetW.toFixed(1)} мм`,
-				(x0 + x1) / 2,
-				y0 - 5
-			);
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.font = "12px Arial";
+      ctx.fillText(
+        `Лист ${fromUnits(sheet.length_u)} × ${sheetW.toFixed(1)} мм`,
+        (x0 + x1) / 2,
+        y0 - 5
+      );
 
-			const colors = ["#3b82f6", "#f97316", "#22c55e", "#eab308", "#a855f7", "#06b6d4"];
-			let colorIndex = 0;
+      const colors = ["#3b82f6", "#f97316", "#22c55e", "#eab308", "#a855f7", "#06b6d4"];
+      let colorIndex = 0;
+      let curLenU = 0; // двигаемся вдоль длины
 
-			// теперь двигаемся ВДОЛЬ ДЛИНЫ (по X), а ширина деталей идёт по Y
-			let curLenU = 0;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "14px Arial";
 
-			ctx.textAlign = "center";
-			ctx.textBaseline = "middle";
-			ctx.font = "10px Arial";
+      for (const it of sheet.items) {
+        const widthU  = it.width_u;   // по Y
+        const lengthU = it.length_u;  // по X
 
-			for (const it of sheet.items) {
-				const widthU  = it.width_u;   // ширина детали (по Y)
-				const lengthU = it.length_u;  // длина детали (по X)
+        for (let k = 0; k < it.count; k++) {
+          const xStartPx = x0 + (curLenU / SCALE) * scale;
+          const xEndPx   = x0 + ((curLenU + lengthU) / SCALE) * scale;
+          const yStartPx = y0;
+          const yEndPx   = y0 + (widthU / SCALE) * scale;
 
-				for (let k = 0; k < it.count; k++) {
-					const xStartPx = x0 + (curLenU / SCALE) * scale;
-					const xEndPx   = x0 + ((curLenU + lengthU) / SCALE) * scale;
-					const yStartPx = y0;
-					const yEndPx   = y0 + (widthU / SCALE) * scale;
+          const color = colors[colorIndex % colors.length];
+          colorIndex++;
 
-					const color = colors[colorIndex % colors.length];
-					colorIndex++;
+          ctx.fillStyle = color;
+          ctx.strokeStyle = "#111";
+          ctx.fillRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
+          ctx.strokeRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
 
-					ctx.fillStyle = color;
-					ctx.strokeStyle = "#111";
-					ctx.fillRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
-					ctx.strokeRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
+          // Горизонтальная подпись по центру полосы
+          const label = `${fromUnits(widthU)}×${fromUnits(lengthU)}`;
+          ctx.fillStyle = "#fff";
+          ctx.fillText(
+            label,
+            (xStartPx + xEndPx) / 2,
+            (yStartPx + yEndPx) / 2
+          );
 
-					ctx.save();
-					ctx.translate((xStartPx + xEndPx) / 2, (yStartPx + yEndPx) / 2);
-					ctx.rotate(-Math.PI / 2);
-					const label = `${fromUnits(widthU)}×${fromUnits(lengthU)}`;
-					ctx.fillStyle = "#fff";
-					ctx.fillText(label, 0, 0);
-					ctx.restore();
+          curLenU += lengthU;
+        }
+      }
 
-					curLenU += lengthU;
-				}
-			}
+      // Остаток по длине (если не вся длина занята)
+      const usedLenMm =
+        sheet.items.reduce((sum, it) => sum + (it.length_u / SCALE) * it.count, 0);
+      if (usedLenMm < sheetLen) {
+        const xStartPx = x0 + usedLenMm * scale;
+        const xEndPx   = x0 + sheetLen * scale;
+        ctx.fillStyle = "#1f2933";
+        ctx.strokeStyle = "#555";
+        ctx.fillRect(xStartPx, y0, xEndPx - xStartPx, sheetPxH);
+        ctx.strokeRect(xStartPx, y0, xEndPx - xStartPx, sheetPxH);
 
-			// остаток по длине (если не вся длина занята)
-			const usedLenMm = (sheet.items.reduce((sum, it) => sum + it.length_u * it.count, 0)) / SCALE;
-			if (usedLenMm < sheetLen) {
-				const xStartPx = x0 + usedLenMm * scale;
-				const xEndPx   = x0 + sheetLen * scale;
-				ctx.fillStyle = "#1f2933";
-				ctx.strokeStyle = "#555";
-				ctx.fillRect(xStartPx, y0, xEndPx - xStartPx, sheetPxH);
-				ctx.strokeRect(xStartPx, y0, xEndPx - xStartPx, sheetPxH);
-
-				ctx.fillStyle = "#e5e7eb";
-				ctx.save();
-				ctx.translate((xStartPx + xEndPx) / 2, (y0 + y1) / 2);
-				ctx.rotate(-Math.PI / 2);
-				ctx.fillText("Остаток", 0, 0);
-				ctx.restore();
-			}
-		}
+        ctx.fillStyle = "#e5e7eb";
+        ctx.fillText(
+          "Остаток",
+          (xStartPx + xEndPx) / 2,
+          (y0 + y1) / 2
+        );
+      }
+    }
 
     // стартовая строка
     addRow();
