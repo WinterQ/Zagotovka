@@ -218,107 +218,113 @@
     }
 
     function drawSheet(sheet) {
-      const canvas = document.getElementById("sheet_canvas");
-      const rect = canvas.getBoundingClientRect();
-      canvas.width  = rect.width;
-      canvas.height = 300;
+			const canvas = document.getElementById("sheet_canvas");
+			const rect = canvas.getBoundingClientRect();
+			canvas.width  = rect.width;
+			canvas.height = 300;
 
-      const ctx = canvas.getContext("2d");
-      const w = canvas.width;
-      const h = canvas.height;
+			const ctx = canvas.getContext("2d");
+			const w = canvas.width;
+			const h = canvas.height;
 
-      ctx.clearRect(0, 0, w, h);
+			ctx.clearRect(0, 0, w, h);
 
-      const sheetW = lastSheetWidth;
-      const sheetL = sheet.length_u / SCALE;
+			// Делаем лист ГОРИЗОНТАЛЬНЫМ:
+			// по оси X – ДЛИНА листа, по оси Y – ШИРИНА листа
+			const sheetLen = sheet.length_u / SCALE;  // мм, теперь по X
+			const sheetW   = lastSheetWidth;          // мм, теперь по Y
 
-      const margin = 20;
-      const cw = w - 2 * margin;
-      const ch = h - 2 * margin;
-      if (cw <= 0 || ch <= 0) return;
+			const margin = 20;
+			const cw = w - 2 * margin;
+			const ch = h - 2 * margin;
+			if (cw <= 0 || ch <= 0) return;
 
-      const scaleX = cw / sheetW;
-      const scaleY = ch / sheetL;
-      const scale = Math.min(scaleX, scaleY);
+			const scaleX = cw / sheetLen;
+			const scaleY = ch / sheetW;
+			const scale = Math.min(scaleX, scaleY);
 
-      const sheetPxW = sheetW * scale;
-      const sheetPxH = sheetL * scale;
-      const x0 = (w - sheetPxW) / 2;
-      const y0 = (h - sheetPxH) / 2;
-      const x1 = x0 + sheetPxW;
-      const y1 = y0 + sheetPxH;
+			const sheetPxW = sheetLen * scale;
+			const sheetPxH = sheetW * scale;
+			const x0 = (w - sheetPxW) / 2;
+			const y0 = (h - sheetPxH) / 2;
+			const x1 = x0 + sheetPxW;
+			const y1 = y0 + sheetPxH;
 
-      ctx.fillStyle = "#444";          // фон листа в тёмной теме
-      ctx.strokeStyle = "#ddd";
-      ctx.lineWidth = 1;
-      ctx.fillRect(x0, y0, sheetPxW, sheetPxH);
-      ctx.strokeRect(x0, y0, sheetPxW, sheetPxH);
+			// фон листа
+			ctx.fillStyle = "#444";
+			ctx.strokeStyle = "#ddd";
+			ctx.lineWidth = 1;
+			ctx.fillRect(x0, y0, sheetPxW, sheetPxH);
+			ctx.strokeRect(x0, y0, sheetPxW, sheetPxH);
 
-      ctx.fillStyle = "#fff";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.font = "12px Arial";
-      ctx.fillText(
-        `Лист ${fromUnits(sheet.length_u)} × ${sheetW.toFixed(1)} мм`,
-        (x0 + x1) / 2,
-        y0 - 5
-      );
+			ctx.fillStyle = "#fff";
+			ctx.textAlign = "center";
+			ctx.textBaseline = "bottom";
+			ctx.font = "12px Arial";
+			ctx.fillText(
+				`Лист ${fromUnits(sheet.length_u)} × ${sheetW.toFixed(1)} мм`,
+				(x0 + x1) / 2,
+				y0 - 5
+			);
 
-      const colors = ["#3b82f6", "#f97316", "#22c55e", "#eab308", "#a855f7", "#06b6d4"];
-      let colorIndex = 0;
-      let curXU = 0;
+			const colors = ["#3b82f6", "#f97316", "#22c55e", "#eab308", "#a855f7", "#06b6d4"];
+			let colorIndex = 0;
 
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = "10px Arial";
+			// теперь двигаемся ВДОЛЬ ДЛИНЫ (по X), а ширина деталей идёт по Y
+			let curLenU = 0;
 
-      for (const it of sheet.items) {
-        const widthU  = it.width_u;
-        const lengthU = it.length_u;
+			ctx.textAlign = "center";
+			ctx.textBaseline = "middle";
+			ctx.font = "10px Arial";
 
-        for (let k = 0; k < it.count; k++) {
-          const xStartPx = x0 + (curXU / SCALE) * scale;
-          const xEndPx   = x0 + ((curXU + widthU) / SCALE) * scale;
-          const yStartPx = y0;
-          const yEndPx   = y0 + (lengthU / SCALE) * scale;
+			for (const it of sheet.items) {
+				const widthU  = it.width_u;   // ширина детали (по Y)
+				const lengthU = it.length_u;  // длина детали (по X)
 
-          const color = colors[colorIndex % colors.length];
-          colorIndex++;
+				for (let k = 0; k < it.count; k++) {
+					const xStartPx = x0 + (curLenU / SCALE) * scale;
+					const xEndPx   = x0 + ((curLenU + lengthU) / SCALE) * scale;
+					const yStartPx = y0;
+					const yEndPx   = y0 + (widthU / SCALE) * scale;
 
-          ctx.fillStyle = color;
-          ctx.strokeStyle = "#111";
-          ctx.fillRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
-          ctx.strokeRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
+					const color = colors[colorIndex % colors.length];
+					colorIndex++;
 
-          ctx.save();
-          ctx.translate((xStartPx + xEndPx) / 2, (yStartPx + yEndPx) / 2);
-          ctx.rotate(-Math.PI / 2);
-          const label = `${fromUnits(widthU)}×${fromUnits(lengthU)}`;
-          ctx.fillStyle = "#fff";
-          ctx.fillText(label, 0, 0);
-          ctx.restore();
+					ctx.fillStyle = color;
+					ctx.strokeStyle = "#111";
+					ctx.fillRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
+					ctx.strokeRect(xStartPx, yStartPx, xEndPx - xStartPx, yEndPx - yStartPx);
 
-          curXU += widthU;
-        }
-      }
+					ctx.save();
+					ctx.translate((xStartPx + xEndPx) / 2, (yStartPx + yEndPx) / 2);
+					ctx.rotate(-Math.PI / 2);
+					const label = `${fromUnits(widthU)}×${fromUnits(lengthU)}`;
+					ctx.fillStyle = "#fff";
+					ctx.fillText(label, 0, 0);
+					ctx.restore();
 
-      const usedWidthMm = sheet.used_width_u / SCALE;
-      if (usedWidthMm < sheetW) {
-        const xStartPx = x0 + usedWidthMm * scale;
-        const xEndPx   = x0 + sheetW * scale;
-        ctx.fillStyle = "#1f2933";
-        ctx.strokeStyle = "#555";
-        ctx.fillRect(xStartPx, y0, xEndPx - xStartPx, sheetPxH);
-        ctx.strokeRect(xStartPx, y0, xEndPx - xStartPx, sheetPxH);
+					curLenU += lengthU;
+				}
+			}
 
-        ctx.fillStyle = "#e5e7eb";
-        ctx.save();
-        ctx.translate((xStartPx + xEndPx) / 2, (y0 + y1) / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText("Остаток", 0, 0);
-        ctx.restore();
-      }
-    }
+			// остаток по длине (если не вся длина занята)
+			const usedLenMm = (sheet.items.reduce((sum, it) => sum + it.length_u * it.count, 0)) / SCALE;
+			if (usedLenMm < sheetLen) {
+				const xStartPx = x0 + usedLenMm * scale;
+				const xEndPx   = x0 + sheetLen * scale;
+				ctx.fillStyle = "#1f2933";
+				ctx.strokeStyle = "#555";
+				ctx.fillRect(xStartPx, y0, xEndPx - xStartPx, sheetPxH);
+				ctx.strokeRect(xStartPx, y0, xEndPx - xStartPx, sheetPxH);
+
+				ctx.fillStyle = "#e5e7eb";
+				ctx.save();
+				ctx.translate((xStartPx + xEndPx) / 2, (y0 + y1) / 2);
+				ctx.rotate(-Math.PI / 2);
+				ctx.fillText("Остаток", 0, 0);
+				ctx.restore();
+			}
+		}
 
     // стартовая строка
     addRow();
